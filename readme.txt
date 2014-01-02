@@ -1,12 +1,12 @@
 === Glance That ===
+
 Contributors: UaMV
 Donate link: http://vandercar.net/wp
 Tags: cpt, custom, post type, glance, dashboard, admin, dashicons
 Requires at least: 3.1
 Tested up to: 3.8
-Stable tag: 1.0
+Stable tag: 1.1
 License: GPLv2 or later
-License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
 Adds content control to At a Glance on the Dashboard
 
@@ -24,6 +24,10 @@ Glance That allows users to customize the content viewable in At a Glance on the
 1. Upload the `glance-that` directory to `/wp-content/plugins/`
 1. Activate the plugin through the 'Plugins' menu in WordPress
 
+== Frequently Asked Questions ==
+
+Silence is golden.
+
 == Screenshots ==
 
 1. At a Glance
@@ -33,3 +37,6 @@ Glance That allows users to customize the content viewable in At a Glance on the
 
 = 1.0 =
 * Initial Release
+
+== Upgrade Notice ==
+

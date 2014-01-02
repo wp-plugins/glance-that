@@ -3,7 +3,7 @@
  * Plugin Name: Glance That
  * Plugin URI: http://vandercar.net/wp/glance-that
  * Description: Adds content control to At a Glance on the Dashboard
- * Version: 1.0
+ * Version: 1.1
  * Author: UaMV
  * Author URI: http://vandercar.net
  *
