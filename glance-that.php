@@ -3,7 +3,7 @@
  * Plugin Name: Glance That
  * Plugin URI: http://vandercar.net/wp/glance-that
  * Description: Adds content control to At a Glance on the Dashboard
- * Version: 1.1
+ * Version: 1.2
  * Author: UaMV
  * Author URI: http://vandercar.net
  *
@@ -28,7 +28,7 @@
  * Define plugins globals.
  */
 
-define( 'GT_VERSION', '1.0' );
+define( 'GT_VERSION', '1.2' );
 define( 'GT_DIR_PATH', plugin_dir_path( __FILE__ ) );
 define( 'GT_DIR_URL', plugin_dir_url( __FILE__ ) );
 
@@ -37,7 +37,6 @@ define( 'GT_DIR_URL', plugin_dir_url( __FILE__ ) );
  */
 
 is_admin() ? Glance_That::get_instance() : FALSE;
-
 
 /**
  * Glance That Class
@@ -243,7 +242,7 @@ class Glance_That {
 	/**
 	 * Adds a form for adding/removing custom post types from the At A Glance
 	 *
-	 * @since    1.0
+	 * @since    1.2
 	 */
 	public function add_form() {
 
@@ -339,14 +338,14 @@ class Glance_That {
 			// Keep form visible if submission has just been made
 			$html .= ( isset( $_GET['action'] ) && ( 'add-gt-item' == $_GET['action'] || 'remove-gt-item' == $_GET['action'] ) ) ? '>' : ' style="display:none;">';
 			
-			// Get the dashicon field
-			$html .= $this->get_dashicon_field( 'gt-item-icon', 'marker', $iconset );
-			
 			// Build up the list of post types
 			$post_types = get_post_types( array(), 'objects' );
 
 			// Apply filters to available post types
 			$post_types = apply_filters( 'gt_post_type_selection', $post_types );
+
+			// Get the dashicon field
+			$html .= $this->get_dashicon_field( 'gt-item-icon', 'marker', $iconset );
 
 			$html .= ' <select id="gt-item" name="gt-item">';
 				$html .= '<option value""></option>';
@@ -354,11 +353,22 @@ class Glance_That {
 
 					// Only show options available to current user (must have edit permissions on post type, be admin for revisions, or be able to list users to add user item)
 					if ( current_user_can( $post_type->cap->edit_posts ) && 'post' != $post_type->name && 'page' != $post_type->name && 'nav_menu_item' != $post_type->name && ! ( 'revision' == $post_type->name && ! current_user_can( 'edit_dashboard' ) ) ) {
-						$html .= '<option value="' . esc_attr( $post_type->name ) . '">' . esc_html( $post_type->labels->name ) . '</option>';
+						$html .= '<option value="' . esc_attr( $post_type->name ) . '" data-dashicon="';
+						// add default dashicons for post types
+						if ( 'attachment' == $post_type->name ) {
+							$html .= 'admin-media';
+						} elseif ( 'revision' == $post_type->name ) {
+							$html .= 'backup';
+						} elseif ( ! empty( $post_type->menu_icon  ) ) {
+							$html .= esc_attr( str_replace( 'dashicons-', '', $post_type->menu_icon ) );
+						} else {
+							$html .= 'marker';
+						}
+						$html .= '">' . esc_html( $post_type->labels->name ) . '</option>';
 					}
 
 				}
-				current_user_can( 'list_users' ) ? $html .= '<option value="user">Users</options>' : FALSE;
+				current_user_can( 'list_users' ) ? $html .= '<option value="user" data-dashicon="admin-users">Users</options>' : FALSE;
 
 			$html .= '</select>';
 			
@@ -481,7 +491,7 @@ class Glance_That {
 	/**
 	 * Assembles a form field for dashicon selection.
 	 *
-	 * @since    1.0
+	 * @since    1.2
 	 */
 
 	public function get_dashicon_field( $id = 'dashicon', $default = 'marker', $options = array() ) {
@@ -685,6 +695,22 @@ class Glance_That {
 		// Allow users to filter available iconset
 		$options = apply_filters( $id . '_selection', $options );
 
+		// Add registered post type dashicons, if defined
+		$post_types = get_post_types( array(), 'objects' );
+
+		// Loop through registered post types
+		foreach ( $post_types as $post_type => $data ) {
+			
+			// If dashicon isset
+			if ( ! is_null( $data->menu_icon ) ) {
+				
+				// If not included in options array, add it
+				! in_array( str_replace( 'dashicons-', '', $data->menu_icon ), $options ) ? $options[] = str_replace( 'dashicons-', '', $data->menu_icon ) : FALSE;
+
+			}
+
+		}
+
 		// Set the default icon code from default icon name
 		foreach ( $dashicons as $code => $icon ) {
 			$default == $icon ? $default_code = $code : FALSE;
@@ -746,7 +772,7 @@ class Glance_That {
 
 			// Show available icons (selection currently handled by external jquery)
 			foreach ( $dashicons as $code => $icon ) {
-				$html .= '<div alt="' . $code . '" class="dashicon dashicons-' . $icon . ' dashicon-option" style="padding-top:6px;"></div>';
+				$html .= '<div alt="' . $code . '" class="dashicon dashicons-' . $icon . ' dashicon-option" data-dashicon="' . $icon . '" style="padding-top:6px;"></div>';
 			}
 	
 		$html .= '</div>';
@@ -756,5 +782,6 @@ class Glance_That {
 	}
 
 } // end class
+
 
 ?>
