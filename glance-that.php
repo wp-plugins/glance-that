@@ -3,7 +3,7 @@
  * Plugin Name: Glance That
  * Plugin URI: http://vandercar.net/wp/glance-that
  * Description: Adds content control to At a Glance on the Dashboard
- * Version: 1.2
+ * Version: 1.3
  * Author: UaMV
  * Author URI: http://vandercar.net
  *
@@ -17,7 +17,7 @@
  * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
  * @package Glance That
- * @version 1.0
+ * @version 1.3
  * @author UaMV
  * @copyright Copyright (c) 2013, UaMV
  * @link http://vandercar.net/wp/glance-that
@@ -28,7 +28,7 @@
  * Define plugins globals.
  */
 
-define( 'GT_VERSION', '1.2' );
+define( 'GT_VERSION', '1.3' );
 define( 'GT_DIR_PATH', plugin_dir_path( __FILE__ ) );
 define( 'GT_DIR_URL', plugin_dir_url( __FILE__ ) );
 
@@ -141,6 +141,7 @@ class Glance_That {
 		global $pagenow;
 
 		if ( 'index.php' == $pagenow ) {
+			wp_enqueue_style( 'glance', GT_DIR_URL . 'glance.css', array(), GT_VERSION );
 			wp_enqueue_script( 'glance-that', GT_DIR_URL . 'glance.js', array(), GT_VERSION );
 		}
 
@@ -296,6 +297,7 @@ class Glance_That {
 			'art',
 			'wordpress',
 			'pressthis',
+			'update',
 			'screenoptions',
 			'info',
 			'cart',

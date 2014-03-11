@@ -5,7 +5,7 @@ Donate link: http://vandercar.net/wp
 Tags: cpt, custom, post type, glance, dashboard, admin, dashicons
 Requires at least: 3.1
 Tested up to: 3.8
-Stable tag: 1.2
+Stable tag: 1.3
 License: GPLv2 or later
 
 Adds content control to At a Glance on the Dashboard
@@ -34,6 +34,9 @@ Silence is golden.
 2. Glance That Form
 
 == Changelog ==
+
+= 1.3 =
+* CSS fix for hidden content in certain instances
 
 = 1.2 =
 * Auto-finds icons for registered post types
