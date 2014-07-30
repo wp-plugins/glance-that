@@ -67,3 +67,6 @@ Silence is golden.
 
 == Upgrade Notice ==
 
+= 1.4 =
+Adds new features
+
