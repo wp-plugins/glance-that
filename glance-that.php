@@ -3,7 +3,7 @@
  * Plugin Name: Glance That
  * Plugin URI: http://vandercar.net/wp/glance-that
  * Description: Adds content control to At a Glance on the Dashboard
- * Version: 1.4
+ * Version: 1.5
  * Author: UaMV
  * Author URI: http://vandercar.net
  *
@@ -17,7 +17,7 @@
  * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
  * @package Glance That
- * @version 1.4
+ * @version 1.5
  * @author UaMV
  * @copyright Copyright (c) 2013, UaMV
  * @link http://vandercar.net/wp/glance-that
@@ -28,7 +28,7 @@
  * Define plugins globals.
  */
 
-define( 'GT_VERSION', '1.4' );
+define( 'GT_VERSION', '1.5' );
 define( 'GT_DIR_PATH', plugin_dir_path( __FILE__ ) );
 define( 'GT_DIR_URL', plugin_dir_url( __FILE__ ) );
 ! defined( 'GT_SHOW_ALL' ) ? define( 'GT_SHOW_ALL', TRUE ) : FALSE;
@@ -174,13 +174,15 @@ class Glance_That {
 					<?php foreach ( array( 'post', 'page' ) as $item ) {
 
 						$num_posts = wp_count_posts( $item );
+
+						$moderation = intval( $num_posts->pending ) > 0 ? 'gt-moderate' : '';
 						
 						$statuses = '<div id="gt-statuses-' . $item . '" class="gt-statuses">';
 						if ( current_user_can( get_post_type_object( $item )->cap->publish_posts ) ) {
 							$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=future" class="gt-future">' . $num_posts->future . '</a></div>';
 						}
 						if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
-							$statuses .= '<div class="gt-status ' . _n( 'gt-moderate', '', $num_posts->pending ) . '"><a href="edit.php?post_type=' . $item . '&post_status=pending" class="gt-pending">' . $num_posts->pending . '</a></div>';
+							$statuses .= '<div class="gt-status ' . $moderation . '"><a href="edit.php?post_type=' . $item . '&post_status=pending" class="gt-pending">' . $num_posts->pending . '</a></div>';
 						}
 						if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
 							$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=draft" class="gt-draft">' . $num_posts->draft . '</a></div>';
@@ -201,8 +203,10 @@ class Glance_That {
 
 						$num_comments = wp_count_comments();
 
+						$moderation = intval( $num_comments->moderated ) > 0 ? 'gt-moderate' : '';
+
 						$statuses = '<div id="gt-statuses-comments" class="gt-statuses">';
-						$statuses .= '<div class="gt-status ' . _n( 'gt-moderate', '', $num_comments->moderated ) . '"><a href="edit-comments.php?comment_status=moderated" class="gt-pending">' . $num_comments->moderated . '</a></div>';
+						$statuses .= '<div class="gt-status ' . $moderation . '"><a href="edit-comments.php?comment_status=moderated" class="gt-pending">' . $num_comments->moderated . '</a></div>';
 						$statuses .= '<div class="gt-status"><a href="edit-comments.php?comment_status=spam" class="gt-spam">' . $num_comments->spam . '</a></div>';
 						$statuses .= '<div class="gt-status"><a href="edit-comments.php?comment_status=trash" class="gt-trash">' . $num_comments->trash . '</a></div>';
 						$statuses .= '</div>'; ?>
@@ -295,7 +299,8 @@ class Glance_That {
 										$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=future" class="gt-future">' . $num_posts->future . '</a></div>';
 									}
 									if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
-										$statuses .= '<div class="gt-status ' . _n( 'gt-moderate', '', $num_posts->pending ) . '"><a href="edit.php?post_type=' . $item . '&post_status=pending" class="gt-pending">' . $num_posts->pending . '</a></div>';
+										$moderation = intval( $num_posts->pending ) > 0 ? 'gt-moderate' : '';
+										$statuses .= '<div class="gt-status ' . $moderation . '"><a href="edit.php?post_type=' . $item . '&post_status=pending" class="gt-pending">' . $num_posts->pending . '</a></div>';
 									}
 									if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
 										$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=draft" class="gt-draft">' . $num_posts->draft . '</a></div>';

@@ -5,7 +5,7 @@ Donate link: http://vandercar.net/wp
 Tags: cpt, custom, post type, glance, dashboard, admin, dashicons
 Requires at least: 3.1
 Tested up to: 3.9.1
-Stable tag: 1.4
+Stable tag: 1.5
 License: GPLv2 or later
 
 Adds content control to At a Glance on the Dashboard
@@ -48,6 +48,9 @@ Silence is golden.
 
 == Changelog ==
 
+= 1.5 =
+* Fix to highlight pending items
+
 = 1.4 =
 * Adds post status viewing
 * Supports additional dashicons
@@ -68,5 +71,5 @@ Silence is golden.
 == Upgrade Notice ==
 
 = 1.4 =
-Adds new features
+* Adds new features
 
