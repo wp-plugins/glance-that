@@ -1,5 +1,5 @@
 /**
- * Theme cards for displaying excerpt and post content.
+ * Handles Glance That icon and form interaction
  */
 jQuery(document).ready(function( $ ) {
 
@@ -27,6 +27,14 @@ jQuery(document).ready(function( $ ) {
 				$('input[data-dashicon="selected"]').attr('value',$gticon.attr('alt'));
 			}
 
+			if ( 'shown' == $gtselection.attr('data-glancing') ) {
+				$('#add-gt-item').hide();
+				$('#remove-gt-item').show();
+			} else if ( 'hidden' == $gtselection.attr('data-glancing') ) {
+				$('#add-gt-item').show();
+				$('#remove-gt-item').hide();
+			}
+
 		});
 
 	$('.dashicon-option').click(
@@ -48,4 +56,5 @@ jQuery(document).ready(function( $ ) {
 		function() {
 			$('#gt-form').attr('action','index.php?action=remove-gt-item');
 		});
+
 });

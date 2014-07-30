@@ -3,7 +3,7 @@
  * Plugin Name: Glance That
  * Plugin URI: http://vandercar.net/wp/glance-that
  * Description: Adds content control to At a Glance on the Dashboard
- * Version: 1.3
+ * Version: 1.4
  * Author: UaMV
  * Author URI: http://vandercar.net
  *
@@ -17,7 +17,7 @@
  * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
  * @package Glance That
- * @version 1.3
+ * @version 1.4
  * @author UaMV
  * @copyright Copyright (c) 2013, UaMV
  * @link http://vandercar.net/wp/glance-that
@@ -28,9 +28,10 @@
  * Define plugins globals.
  */
 
-define( 'GT_VERSION', '1.3' );
+define( 'GT_VERSION', '1.4' );
 define( 'GT_DIR_PATH', plugin_dir_path( __FILE__ ) );
 define( 'GT_DIR_URL', plugin_dir_url( __FILE__ ) );
+! defined( 'GT_SHOW_ALL' ) ? define( 'GT_SHOW_ALL', TRUE ) : FALSE;
 
 /**
  * Get instance of class if in admin.
@@ -90,8 +91,25 @@ class Glance_That {
 	 */
 	private function __construct() {
 
-		// Load the administrative Stylesheets and JavaScript
-		add_action( 'admin_enqueue_scripts', array( $this, 'add_stylesheets_and_javascript' ) );
+		// Retrieve current admin page
+		global $pagenow;
+
+		// Restrict calls to dashboard
+		if ( 'index.php' == $pagenow ) {
+
+			// Load the administrative Stylesheets and JavaScript
+			add_action( 'admin_enqueue_scripts', array( $this, 'add_stylesheets_and_javascript' ) );
+
+			// Process the form
+			add_action( 'admin_init', array( $this, 'process_form' ) );
+
+			// Load up an administration notice to guide users to the next step
+			add_action( 'admin_notices', array( $this, 'show_notices' ) );
+
+			// Add post statuses to native types
+			add_action( 'admin_footer', array( $this, 'add_statuses') );
+
+		}
 
 		// Add custom post types to end of At A Glance table
 		add_filter( 'dashboard_glance_items', array( $this, 'customize_items' ), 10, 1 );
@@ -101,12 +119,6 @@ class Glance_That {
 
 		// Add form to end of At A Glance
 		add_action( 'activity_box_end', array( $this, 'add_form' ) );
-
-		// Process the form
-		add_action( 'admin_init', array( $this, 'process_form' ) );
-
-		// Load up an administration notice to guide users to the next step
-		add_action( 'admin_notices', array( $this, 'show_notices' ) );
 
 	} // end constructor
 
@@ -148,6 +160,64 @@ class Glance_That {
 	} // end add_stylesheets_and_javascript
 
 	/**
+	 * Adds statuses to the end of native post type items
+	 *
+	 * @since    1.4
+	 */
+	public function add_statuses() {
+
+		if ( GT_SHOW_ALL ) { ?>
+		
+			<script type="text/javascript" language="javascript">
+				jQuery(document).ready(function($) {
+
+					<?php foreach ( array( 'post', 'page' ) as $item ) {
+
+						$num_posts = wp_count_posts( $item );
+						
+						$statuses = '<div id="gt-statuses-' . $item . '" class="gt-statuses">';
+						if ( current_user_can( get_post_type_object( $item )->cap->publish_posts ) ) {
+							$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=future" class="gt-future">' . $num_posts->future . '</a></div>';
+						}
+						if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
+							$statuses .= '<div class="gt-status ' . _n( 'gt-moderate', '', $num_posts->pending ) . '"><a href="edit.php?post_type=' . $item . '&post_status=pending" class="gt-pending">' . $num_posts->pending . '</a></div>';
+						}
+						if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
+							$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=draft" class="gt-draft">' . $num_posts->draft . '</a></div>';
+						}
+						if ( current_user_can( get_post_type_object( $item )->cap->edit_private_posts ) ) {
+							$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=private" class="gt-private">' . $num_posts->private . '</a></div>';
+						}
+						if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) && current_user_can( get_post_type_object( $item )->cap->delete_posts ) ) {
+							$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=trash" class="gt-trash">' . $num_posts->trash . '</a></div>';
+						}
+						$statuses .= '</div>'; ?>
+
+						$('.<?php echo $item; ?>-count').append('<?php echo $statuses; ?>');
+				
+					<?php }
+
+					if ( current_user_can( 'moderate_comments' ) ) {
+
+						$num_comments = wp_count_comments();
+
+						$statuses = '<div id="gt-statuses-comments" class="gt-statuses">';
+						$statuses .= '<div class="gt-status ' . _n( 'gt-moderate', '', $num_comments->moderated ) . '"><a href="edit-comments.php?comment_status=moderated" class="gt-pending">' . $num_comments->moderated . '</a></div>';
+						$statuses .= '<div class="gt-status"><a href="edit-comments.php?comment_status=spam" class="gt-spam">' . $num_comments->spam . '</a></div>';
+						$statuses .= '<div class="gt-status"><a href="edit-comments.php?comment_status=trash" class="gt-trash">' . $num_comments->trash . '</a></div>';
+						$statuses .= '</div>'; ?>
+
+						$('.comment-count').append('<?php echo $statuses; ?>');
+
+					<?php } ?> 
+
+				});
+			</script>
+		<?php }
+
+	} // end add_statuses
+
+	/**
 	 * Adds custom post types to the end of At a Glance table
 	 *
 	 * @since    1.0
@@ -155,8 +225,7 @@ class Glance_That {
 	public function customize_items( $elements ) {
 
 		// Get the current users activated glances
-		$current_user = wp_get_current_user();
-		$glances = get_user_meta( $current_user->ID, 'glance_that', TRUE );
+		$glances = $this->users_glance_that();
 
 		// If not empty, add items
 		if ( '' != $glances ) {
@@ -179,13 +248,22 @@ class Glance_That {
 
 					case 'attachment':
 						$num_posts = wp_count_posts( $item );
+						$unattached = get_posts( array( 'post_type' => 'attachment', 'numberposts' => -1, 'post_status' => NULL, 'post_parent' => 0 ) );
+						$unattached = count( $unattached );
+
 						if ( $num_posts && $num_posts->inherit && current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
 							$text = _n( '%s ' . get_post_type_object( $item )->labels->singular_name, '%s ' . get_post_type_object( $item )->labels->name, $num_posts->inherit );
 						
 							$text = sprintf( $text, number_format_i18n( $num_posts->inherit ) );
 
+							if ( GT_SHOW_ALL ) {
+								$statuses = '<div class="gt-statuses">';
+								$statuses .= '<div class="gt-status"><a href="upload.php?detached=1" class="gt-unattached">' . $unattached . '</a></div>';
+								$statuses .= '</div>';
+							}
+
 							ob_start();
-								printf( '<style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><a data-gt="%1$s" href="upload.php" class="glance-that">%2$s</a>', $item, $text );
+								printf( '<style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><div class="gt-published"><a data-gt="%1$s" href="upload.php" class="glance-that">%2$s</a></div>%3$s', $item, $text, $statuses );
 							$elements[] = ob_get_clean();
 						}
 						break;
@@ -204,15 +282,37 @@ class Glance_That {
 						break;
 
 					default:
-						$num_posts = wp_count_posts( $item );
-						if ( $num_posts && $num_posts->publish && current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
-							$text = _n( '%s ' . get_post_type_object( $item )->labels->singular_name, '%s ' . get_post_type_object( $item )->labels->name, $num_posts->publish );
-						
-							$text = sprintf( $text, number_format_i18n( $num_posts->publish ) );
+						if ( post_type_exists( $item ) ) {
+							$num_posts = wp_count_posts( $item );
+							if ( $num_posts && $num_posts->publish && current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
+								$text = _n( '%s ' . get_post_type_object( $item )->labels->singular_name, '%s ' . get_post_type_object( $item )->labels->name, $num_posts->publish );
+							
+								$text = sprintf( $text, number_format_i18n( $num_posts->publish ) );
 
-							ob_start();
-								printf( '<style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><a data-gt="%1$s" href="edit.php?post_type=%1$s" class="glance-that">%2$s</a>', $item, $text );
-							$elements[] = ob_get_clean();
+								if ( GT_SHOW_ALL ) {
+									$statuses = '<div class="gt-statuses">';
+									if ( current_user_can( get_post_type_object( $item )->cap->publish_posts ) ) {
+										$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=future" class="gt-future">' . $num_posts->future . '</a></div>';
+									}
+									if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
+										$statuses .= '<div class="gt-status ' . _n( 'gt-moderate', '', $num_posts->pending ) . '"><a href="edit.php?post_type=' . $item . '&post_status=pending" class="gt-pending">' . $num_posts->pending . '</a></div>';
+									}
+									if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
+										$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=draft" class="gt-draft">' . $num_posts->draft . '</a></div>';
+									}
+									if ( current_user_can( get_post_type_object( $item )->cap->edit_private_posts ) ) {
+										$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=private" class="gt-private">' . $num_posts->private . '</a></div>';
+									}
+									if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) && current_user_can( get_post_type_object( $item )->cap->delete_posts ) ) {
+										$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=trash" class="gt-trash">' . $num_posts->trash . '</a></div>';
+									}
+									$statuses .= '</div>';
+								}
+
+								ob_start();
+									printf( '<style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><div class="gt-published"><a data-gt="%1$s" href="edit.php?post_type=%1$s" class="glance-that">%2$s</a></div>%3$s', $item, $text, $statuses );
+								$elements[] = ob_get_clean();
+							}
 						}
 						break;
 				}
@@ -278,6 +378,8 @@ class Glance_That {
 			'video-alt',
 			'video-alt2',
 			'video-alt3',
+			'playlist-audio',
+			'playlist-video',
 			'editor-help',
 			'lock',
 			'calendar',
@@ -295,6 +397,14 @@ class Glance_That {
 			'googleplus',
 			'networking',
 			'art',
+			'performance',
+			'universal-access',
+			'tickets',
+			'nametag',
+			'clipboard',
+			'heart',
+			'megaphone',
+			'schedule',
 			'wordpress',
 			'pressthis',
 			'update',
@@ -306,6 +416,7 @@ class Glance_That {
 			'translation',
 			'tag',
 			'category',
+			'archive',
 			'marker',	
 			'star-filled',
 			'flag',
@@ -332,7 +443,11 @@ class Glance_That {
 			'download',
 			'backup',
 			'lightbulb',
+			'microphone',
 		);
+
+		// Get the current users activated glances
+		$glances = $this->users_glance_that();
 
 		// Assemble a form for adding/removing post types
 		$html = '<form id="gt-form" method="post" action="index.php?action=add-gt-item"';
@@ -353,30 +468,41 @@ class Glance_That {
 				$html .= '<option value""></option>';
 				foreach( $post_types as $index => $post_type ) {
 
-					// Only show options available to current user (must have edit permissions on post type, be admin for revisions, or be able to list users to add user item)
-					if ( current_user_can( $post_type->cap->edit_posts ) && 'post' != $post_type->name && 'page' != $post_type->name && 'nav_menu_item' != $post_type->name && ! ( 'revision' == $post_type->name && ! current_user_can( 'edit_dashboard' ) ) ) {
+					// Set data-glancing attribute
+					$glancing = isset( $glances[ $post_type->name ] ) ? 'data-glancing="shown"' : 'data-glancing="hidden"';
+
+					// Only show revisions to admininstrators
+					if ( 'revision' == $post_type->name && current_user_can( 'edit_dashboard' ) ) {
+						$html .= '<option value="' . esc_attr( $post_type->name ) . '" data-dashicon="backup" ' . $glancing . '>' . esc_html( $post_type->labels->name ) . '</option>';
+					}
+
+					// Only show post types on which user has edit permissions
+					elseif ( current_user_can( $post_type->cap->edit_posts ) && 'post' != $post_type->name && 'page' != $post_type->name && 'nav_menu_item' != $post_type->name ) {
 						$html .= '<option value="' . esc_attr( $post_type->name ) . '" data-dashicon="';
 						// add default dashicons for post types
 						if ( 'attachment' == $post_type->name ) {
 							$html .= 'admin-media';
-						} elseif ( 'revision' == $post_type->name ) {
-							$html .= 'backup';
 						} elseif ( ! empty( $post_type->menu_icon  ) ) {
 							$html .= esc_attr( str_replace( 'dashicons-', '', $post_type->menu_icon ) );
 						} else {
 							$html .= 'marker';
 						}
-						$html .= '">' . esc_html( $post_type->labels->name ) . '</option>';
+						$html .= '" ' . $glancing . '>' . esc_html( $post_type->labels->name ) . '</option>';
 					}
 
 				}
-				current_user_can( 'list_users' ) ? $html .= '<option value="user" data-dashicon="admin-users">Users</options>' : FALSE;
+
+				// Set data-glancing attribute
+				$glancing = isset( $glances['user'] ) ? 'data-glancing="shown"' : 'data-glancing="hidden"';
+
+				// Only show users option if user can list users
+				current_user_can( 'list_users' ) ? $html .= '<option value="user" data-dashicon="admin-users" ' . $glancing . '>Users</options>' : FALSE;
 
 			$html .= '</select>';
 			
 			// Set the submission buttons which are handled via jquery
 			$html .= '<span style="float: right;">';
-				$html .= '<input type="submit" class="button-primary" value="Add" id="add-gt-item" />&nbsp;&nbsp;&nbsp;';
+				$html .= '<input type="submit" class="button-primary" value="Add" id="add-gt-item" />';
 				$html .= '<input type="submit" class="button-primary" value="Remove" id="remove-gt-item" />';
 			$html .= '</span>';
 
@@ -396,9 +522,11 @@ class Glance_That {
 		// Check if in admin and user has submitted the form
 		if ( is_admin() && isset( $_GET['action'] ) && ( 'add-gt-item' == $_GET['action'] || 'remove-gt-item' == $_GET['action'] ) ) {
 
-			// Get the current users activated glances
+			// Get current user
 			$current_user = wp_get_current_user();
-			$glances = get_user_meta( $current_user->ID, 'glance_that', TRUE );
+
+			// Get the current users activated glances
+			$glances = $this->users_glance_that();
 
 			// Get the submitted post type glance
 			$glance = isset( $_POST['gt-item'] ) ? $_POST['gt-item'] : '';
@@ -412,10 +540,6 @@ class Glance_That {
 				// If no item is selected
 				if ( '' == $glance ) {
 					$this->notices[] = array( 'message' => 'You must select an item to add.', 'class' => 'error' );
-				}
-				// If submitted item is already visible
-				elseif ( isset( $glances[ $glance ] ) ) {
-					$this->notices[] = array( 'message' => 'This item was already visible.', 'class' => 'error' );
 				}
 				// Otherwise, add submitted item
 				else {
@@ -442,11 +566,7 @@ class Glance_That {
 
 				// If no item is selected
 				if ( '' == $glance ) {
-					$this->notices[] = array( 'message' => 'You must select a post type to remove.', 'class' => 'error' );
-				}
-				// If submitted item is already hidden
-				elseif ( ! isset( $glances[ $glance ] ) ) {
-					$this->notices[] = array( 'message' => 'This item was already hidden.', 'class' => 'error' );
+					$this->notices[] = array( 'message' => 'You must select an item to remove.', 'class' => 'error' );
 				}
 				// Otherwise, remove submitted item
 				else {
@@ -506,7 +626,6 @@ class Glance_That {
 			'f109' => 'admin-post',
 			'f104' => 'admin-media',
 			'f103' => 'admin-links',
-			'f159' => 'marker',
 			'f105' => 'admin-page',
 			'f101' => 'admin-comments',
 			'f100' => 'admin-appearance',
@@ -542,6 +661,19 @@ class Glance_That {
 			'f234' => 'video-alt',
 			'f235' => 'video-alt2',
 			'f236' => 'video-alt3',
+
+			// media
+			'f501' => 'media-archive',
+			'f500' => 'media-audio',
+			'f499' => 'media-code',
+			'f498' => 'media-default',
+			'f497' => 'media-document',
+			'f496' => 'media-interactive',
+			'f495' => 'media-spreadsheet',
+			'f491' => 'media-text',
+			'f490' => 'media-video',
+			'f492' => 'playlist-audio',
+			'f493' => 'playlist-video',
 			
 			// image editing
 			'f165' => 'image-crop',
@@ -563,7 +695,9 @@ class Glance_That {
 			'f208' => 'editor-alignright',
 			'f209' => 'editor-insertmore',
 			'f210' => 'editor-spellcheck',
-			'f211' => 'editor-distractionfree',
+			'f211' => 'editor-expand',
+			'f506' => 'editor-contract',
+			//'f211' => 'editor-distractionfree', duplicate
 			'f212' => 'editor-kitchensink',
 			'f213' => 'editor-underline',
 			'f214' => 'editor-justify',
@@ -578,7 +712,10 @@ class Glance_That {
 			'f223' => 'editor-help',
 			'f224' => 'editor-strikethrough',
 			'f225' => 'editor-unlink',
-			'f320' => 'editor-rtl',	
+			'f320' => 'editor-rtl',
+			'f464' => 'editor-break',
+			'f475' => 'editor-code',
+			'f476' => 'editor-paragraph',
 			
 			// posts
 			'f135' => 'align-left',
@@ -607,6 +744,7 @@ class Glance_That {
 			'f341' => 'arrow-left-alt2',
 			'f156' => 'sort',
 			'f229' => 'leftright',
+			'f503' => 'randomize',
 			'f163' => 'list-view',
 			'f164' => 'exerpt-view',
 			
@@ -628,6 +766,14 @@ class Glance_That {
 			'f309' => 'art',
 			'f310' => 'migrate',
 			'f311' => 'performance',
+			'f483' => 'universal-access',
+			'f507' => 'universal-access-alt',
+			'f486' => 'tickets',
+			'f484' => 'nametag',
+			'f481' => 'clipboard',
+			'f487' => 'heart',
+			'f488' => 'megaphone',
+			'f489' => 'schedule',
 			
 			// internal/products
 			'f120' => 'wordpress',
@@ -644,12 +790,18 @@ class Glance_That {
 			// taxonomies
 			'f323' => 'tag',
 			'f318' => 'category',
+
+			// widgets
+			'f478' => 'archive',
+			'f479' => 'tagcloud',
+			'f480' => 'text',
 			
 			// alerts/notifications/flags
 			'f147' => 'yes',
 			'f158' => 'no',
 			'f335' => 'no-alt',
 			'f132' => 'plus',
+			'f502' => 'plus-alt',
 			'f460' => 'minus',
 			'f153' => 'dismiss',
 			'f159' => 'marker',	
@@ -688,6 +840,7 @@ class Glance_That {
 			'f321' => 'backup',
 			'f469' => 'clock',
 			'f339' => 'lightbulb',
+			'f482' => 'microphone',
 			'f472' => 'desktop',
 			'f471' => 'tablet',
 			'f470' => 'smartphone',
@@ -780,6 +933,19 @@ class Glance_That {
 		$html .= '</div>';
 
 		return $html;
+
+	}
+
+	/**
+	 * Process any responses to the displayed notices.
+	 *
+	 * @since    1.0
+	 */
+	public function users_glance_that() {
+
+		// Get the current users activated glances
+		$current_user = wp_get_current_user();
+		return get_user_meta( $current_user->ID, 'glance_that', TRUE );
 
 	}
 
