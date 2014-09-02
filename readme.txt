@@ -4,8 +4,8 @@ Contributors: UaMV
 Donate link: http://vandercar.net/wp
 Tags: cpt, custom, post type, glance, dashboard, admin, dashicons
 Requires at least: 3.1
-Tested up to: 3.9.1
-Stable tag: 1.5
+Tested up to: 4.0
+Stable tag: 1.6
 License: GPLv2 or later
 
 Adds content control to At a Glance on the Dashboard
@@ -17,9 +17,10 @@ Glance That allows users to customize the content viewable in At a Glance on the
 * Custom post types
 * Revisions (admins only)
 * Media
+* Plugins
 * Users
 
-Additionally, Glance That allows you to view the number of posts matching the following post statuses:
+Additionally, Glance That allows you to view the number of items matching the following statuses:
 
 * Scheduled
 * Pending
@@ -28,6 +29,7 @@ Additionally, Glance That allows you to view the number of posts matching the fo
 * Trash
 * Unattached (Media)
 * Spam (Comments)
+* Active, Inactive, Updates (Plugins)
 
 Statuses can be hid by adding the following to wp-config.php
 `define( GT_SHOW_ALL, FALSE );`
@@ -47,6 +49,9 @@ Silence is golden.
 2. Glance That Form
 
 == Changelog ==
+
+= 1.6 =
+* Adds support for glancing plugins
 
 = 1.5 =
 * Fix to highlight pending items

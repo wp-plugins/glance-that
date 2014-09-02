@@ -3,7 +3,7 @@
  * Plugin Name: Glance That
  * Plugin URI: http://vandercar.net/wp/glance-that
  * Description: Adds content control to At a Glance on the Dashboard
- * Version: 1.5
+ * Version: 1.6
  * Author: UaMV
  * Author URI: http://vandercar.net
  *
@@ -17,7 +17,7 @@
  * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
  * @package Glance That
- * @version 1.5
+ * @version 1.6
  * @author UaMV
  * @copyright Copyright (c) 2013, UaMV
  * @link http://vandercar.net/wp/glance-that
@@ -28,7 +28,7 @@
  * Define plugins globals.
  */
 
-define( 'GT_VERSION', '1.5' );
+define( 'GT_VERSION', '1.6' );
 define( 'GT_DIR_PATH', plugin_dir_path( __FILE__ ) );
 define( 'GT_DIR_URL', plugin_dir_url( __FILE__ ) );
 ! defined( 'GT_SHOW_ALL' ) ? define( 'GT_SHOW_ALL', TRUE ) : FALSE;
@@ -267,9 +267,42 @@ class Glance_That {
 							}
 
 							ob_start();
-								printf( '<style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><div class="gt-published"><a data-gt="%1$s" href="upload.php" class="glance-that">%2$s</a></div>%3$s', $item, $text, $statuses );
+								printf( '<style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><a data-gt="%1$s" href="upload.php" class="glance-that">%2$s</a>%3$s', $item, $text, $statuses );
 							$elements[] = ob_get_clean();
 						}
+						break;
+
+					case 'plugin':
+						$plugins = get_plugins();
+						$num_plugins = count( $plugins );
+						$num_plugins_active = 0;
+
+						$plugin_updates = get_plugin_updates();
+						$num_plugin_updates = count( $plugin_updates );
+						
+						foreach ( $plugins as $plugin => $data ) {
+							is_plugin_active( $plugin ) ? $num_plugins_active++ : FALSE;
+						}
+
+						if ( $num_plugins && current_user_can( 'activate_plugins' ) ) {
+							$text = _n( '%s Plugin', '%s Plugins', $num_plugins );
+						
+							$text = sprintf( $text, number_format_i18n( $num_plugins ) );
+
+							if ( GT_SHOW_ALL ) {
+								$statuses = '<div class="gt-statuses">';
+									$statuses .= '<div class="gt-status"><a href="plugins.php?plugin_status=active" class="gt-active">' . $num_plugins_active . '</a></div>';
+									$moderation = intval( $num_plugin_updates ) > 0 ? 'gt-moderate' : '';
+									$statuses .= '<div class="gt-status ' . $moderation . '"><a href="plugins.php?plugin_status=upgrade" class="gt-update">' . $num_plugin_updates . '</a></div>';
+									$statuses .= '<div class="gt-status"><a href="plugins.php?plugin_status=inactive" class="gt-inactive">' . ( $num_plugins - $num_plugins_active ) . '</a></div>';
+								$statuses .= '</div>';
+							}
+
+							ob_start();
+								printf( '<style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><div class="gt-published"><a data-gt="%1$s" href="plugins.php" class="glance-that">%2$s</a></div>%3$s', $item, $text, $statuses );
+							$elements[] = ob_get_clean();
+						}
+
 						break;
 
 					case 'user':
@@ -362,6 +395,7 @@ class Glance_That {
 			'marker',
 			'admin-page',
 			'admin-comments',
+			'admin-plugins',
 			'admin-users',
 			'admin-network',
 			'admin-home',
@@ -503,6 +537,12 @@ class Glance_That {
 				// Only show users option if user can list users
 				current_user_can( 'list_users' ) ? $html .= '<option value="user" data-dashicon="admin-users" ' . $glancing . '>Users</options>' : FALSE;
 
+				// Set data-glancing attribute
+				$glancing = isset( $glances['plugin'] ) ? 'data-glancing="shown"' : 'data-glancing="hidden"';
+
+				// Only show plugins optino if user can activate plugins
+				current_user_can( 'activate_plugins' ) ? $html .= '<option value="plugin" data-dashicon="admin-plugins" ' . $glancing . '>Plugins</options>' : FALSE;
+
 			$html .= '</select>';
 			
 			// Set the submission buttons which are handled via jquery
@@ -561,8 +601,10 @@ class Glance_That {
 					// Display notices
 					if ( in_array( $glance, $post_types ) ) {
 						$this->notices[] = array( 'message' => '<strong>' . esc_html( get_post_type_object( $glance )->labels->name ) . '</strong> were successfully added to your glances.', 'class' => 'updated' );
-					} else {
+					} elseif ( 'user' == $glance ) {
 						$this->notices[] = array( 'message' => '<strong>Users</strong> were successfully added to your glances.', 'class' => 'updated' );
+					} elseif ( 'plugin' == $glance ) {
+						$this->notices[] = array( 'message' => '<strong>Plugins</strong> were successfully added to your glances.', 'class' => 'updated' );
 					}
 				}
 
@@ -585,8 +627,10 @@ class Glance_That {
 					// Display notices
 					if ( in_array( $glance, $post_types ) ) {
 						$this->notices[] = array( 'message' => '<strong>' . esc_html( get_post_type_object( $glance )->labels->name ) . '</strong> were successfully removed from your glances.', 'class' => 'updated' );
-					} else {
+					} elseif ( 'user' == $glance ) {
 						$this->notices[] = array( 'message' => '<strong>Users</strong> were successfully removed from your glances.', 'class' => 'updated' );
+					} elseif ( 'plugin' == $glance ) {
+						$this->notices[] = array( 'message' => '<strong>Plugins</strong> were successfully removed from your glances.', 'class' => 'updated' );
 					}
 				}
 
