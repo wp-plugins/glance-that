@@ -5,7 +5,7 @@ Donate link: http://vandercar.net/wp
 Tags: cpt, custom, post type, glance, dashboard, admin, dashicons
 Requires at least: 3.1
 Tested up to: 4.0
-Stable tag: 1.6
+Stable tag: 1.7
 License: GPLv2 or later
 
 Adds content control to At a Glance on the Dashboard
@@ -49,6 +49,9 @@ Silence is golden.
 2. Glance That Form
 
 == Changelog ==
+
+= 1.7 =
+* Fix for thrown notices in some situations
 
 = 1.6 =
 * Adds support for glancing plugins

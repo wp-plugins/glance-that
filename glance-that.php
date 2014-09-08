@@ -3,7 +3,7 @@
  * Plugin Name: Glance That
  * Plugin URI: http://vandercar.net/wp/glance-that
  * Description: Adds content control to At a Glance on the Dashboard
- * Version: 1.6
+ * Version: 1.7
  * Author: UaMV
  * Author URI: http://vandercar.net
  *
@@ -17,7 +17,7 @@
  * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
  * @package Glance That
- * @version 1.6
+ * @version 1.7
  * @author UaMV
  * @copyright Copyright (c) 2013, UaMV
  * @link http://vandercar.net/wp/glance-that
@@ -28,7 +28,7 @@
  * Define plugins globals.
  */
 
-define( 'GT_VERSION', '1.6' );
+define( 'GT_VERSION', '1.7' );
 define( 'GT_DIR_PATH', plugin_dir_path( __FILE__ ) );
 define( 'GT_DIR_URL', plugin_dir_url( __FILE__ ) );
 ! defined( 'GT_SHOW_ALL' ) ? define( 'GT_SHOW_ALL', TRUE ) : FALSE;
@@ -338,10 +338,10 @@ class Glance_That {
 									if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
 										$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=draft" class="gt-draft">' . $num_posts->draft . '</a></div>';
 									}
-									if ( current_user_can( get_post_type_object( $item )->cap->edit_private_posts ) ) {
+									if ( ( ! isset( get_post_type_object( $item )->cap->edit_private_posts ) && current_user_can( 'edit_private_posts' ) ) || current_user_can( get_post_type_object( $item )->cap->edit_private_posts ) ) {
 										$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=private" class="gt-private">' . $num_posts->private . '</a></div>';
 									}
-									if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) && current_user_can( get_post_type_object( $item )->cap->delete_posts ) ) {
+									if ( ( ! isset( get_post_type_object( $item )->cap->delete_posts ) && current_user_can( 'delete_posts' ) && current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) || ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) && current_user_can( get_post_type_object( $item )->cap->delete_posts ) ) ) {
 										$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=trash" class="gt-trash">' . $num_posts->trash . '</a></div>';
 									}
 									$statuses .= '</div>';
