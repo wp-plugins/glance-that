@@ -68,3 +68,7 @@
 #gt-form input[type="submit"] {
 	display: none;
 }
+.element-holder {
+	border-left: 4px dotted #ececec;
+	margin-right: -4px;
+}

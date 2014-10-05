@@ -3,7 +3,7 @@
  * Plugin Name: Glance That
  * Plugin URI: http://vandercar.net/wp/glance-that
  * Description: Adds content control to At a Glance on the Dashboard
- * Version: 1.7
+ * Version: 1.8
  * Author: UaMV
  * Author URI: http://vandercar.net
  *
@@ -17,7 +17,7 @@
  * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
  * @package Glance That
- * @version 1.7
+ * @version 1.8
  * @author UaMV
  * @copyright Copyright (c) 2013, UaMV
  * @link http://vandercar.net/wp/glance-that
@@ -28,16 +28,21 @@
  * Define plugins globals.
  */
 
-define( 'GT_VERSION', '1.7' );
+define( 'GT_VERSION', '1.8' );
 define( 'GT_DIR_PATH', plugin_dir_path( __FILE__ ) );
 define( 'GT_DIR_URL', plugin_dir_url( __FILE__ ) );
 ! defined( 'GT_SHOW_ALL' ) ? define( 'GT_SHOW_ALL', TRUE ) : FALSE;
+! defined( 'GT_SHOW_ZERO_COUNT' ) ? define( 'GT_SHOW_ZERO_COUNT', TRUE ) : FALSE;
 
 /**
  * Get instance of class if in admin.
  */
 
-is_admin() ? Glance_That::get_instance() : FALSE;
+global $pagenow;
+
+if ( is_admin() && ( 'index.php' == $pagenow || 'admin-ajax.php' == $pagenow ) ) {
+	Glance_That::get_instance();
+}
 
 /**
  * Glance That Class
@@ -80,6 +85,24 @@ class Glance_That {
 	 */
 	protected $notices;
 
+	/**
+	 * glances.
+	 *
+	 * @since    1.0
+	 *
+	 * @var      array
+	 */
+	protected $glances;
+
+	/**
+	 * glances.
+	 *
+	 * @since    1.0
+	 *
+	 * @var      array
+	 */
+	protected $glances_indexed;
+
 	/*---------------------------------------------------------------------------------*
 	 * Consturctor
 	 *---------------------------------------------------------------------------------*/
@@ -91,25 +114,20 @@ class Glance_That {
 	 */
 	private function __construct() {
 
-		// Retrieve current admin page
-		global $pagenow;
+		// Process the form
+		add_action( 'plugins_loaded', array( $this, 'get_users_glances' ) );
 
-		// Restrict calls to dashboard
-		if ( 'index.php' == $pagenow ) {
+		// Load the administrative Stylesheets and JavaScript
+		add_action( 'admin_enqueue_scripts', array( $this, 'add_stylesheets_and_javascript' ) );
 
-			// Load the administrative Stylesheets and JavaScript
-			add_action( 'admin_enqueue_scripts', array( $this, 'add_stylesheets_and_javascript' ) );
+		// Process the form
+		add_action( 'admin_init', array( $this, 'process_form' ) );
 
-			// Process the form
-			add_action( 'admin_init', array( $this, 'process_form' ) );
+		// Load up an administration notice to guide users to the next step
+		add_action( 'admin_notices', array( $this, 'show_notices' ) );
 
-			// Load up an administration notice to guide users to the next step
-			add_action( 'admin_notices', array( $this, 'show_notices' ) );
-
-			// Add post statuses to native types
-			add_action( 'admin_footer', array( $this, 'add_statuses') );
-
-		}
+		// Add post statuses to native types
+		add_action( 'admin_footer', array( $this, 'add_sort_order' ) );
 
 		// Add custom post types to end of At A Glance table
 		add_filter( 'dashboard_glance_items', array( $this, 'customize_items' ), 10, 1 );
@@ -119,6 +137,9 @@ class Glance_That {
 
 		// Add form to end of At A Glance
 		add_action( 'activity_box_end', array( $this, 'add_form' ) );
+
+		// Add ajax call to modify sort order
+		add_action( 'wp_ajax_sort_glances', array( $this, 'sort_glances' ) );
 
 	} // end constructor
 
@@ -150,74 +171,33 @@ class Glance_That {
 	 * @since    1.0
 	 */
 	public function add_stylesheets_and_javascript() {
-		global $pagenow;
-
-		if ( 'index.php' == $pagenow ) {
-			wp_enqueue_style( 'glance', GT_DIR_URL . 'glance.css', array(), GT_VERSION );
-			wp_enqueue_script( 'glance-that', GT_DIR_URL . 'glance.js', array(), GT_VERSION );
-		}
+		wp_enqueue_style( 'glance', GT_DIR_URL . 'glance.css', array(), GT_VERSION );
+		wp_enqueue_script( 'glance-that', GT_DIR_URL . 'glance.js', array( 'jquery' ), GT_VERSION );
+		wp_localize_script( 'glance-that', 'Glance', array( 'ajaxurl' => admin_url( 'admin-ajax.php' ) ) );
 
 	} // end add_stylesheets_and_javascript
 
 	/**
-	 * Adds statuses to the end of native post type items
+	 * Adds order to list item for use by sortable
 	 *
 	 * @since    1.4
 	 */
-	public function add_statuses() {
-
-		if ( GT_SHOW_ALL ) { ?>
+	public function add_sort_order() { ?>
 		
-			<script type="text/javascript" language="javascript">
-				jQuery(document).ready(function($) {
+		<script type="text/javascript" language="javascript">
+			jQuery(document).ready(function($) {
 
-					<?php foreach ( array( 'post', 'page' ) as $item ) {
-
-						$num_posts = wp_count_posts( $item );
-
-						$moderation = intval( $num_posts->pending ) > 0 ? 'gt-moderate' : '';
-						
-						$statuses = '<div id="gt-statuses-' . $item . '" class="gt-statuses">';
-						if ( current_user_can( get_post_type_object( $item )->cap->publish_posts ) ) {
-							$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=future" class="gt-future">' . $num_posts->future . '</a></div>';
-						}
-						if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
-							$statuses .= '<div class="gt-status ' . $moderation . '"><a href="edit.php?post_type=' . $item . '&post_status=pending" class="gt-pending">' . $num_posts->pending . '</a></div>';
-						}
-						if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
-							$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=draft" class="gt-draft">' . $num_posts->draft . '</a></div>';
-						}
-						if ( current_user_can( get_post_type_object( $item )->cap->edit_private_posts ) ) {
-							$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=private" class="gt-private">' . $num_posts->private . '</a></div>';
-						}
-						if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) && current_user_can( get_post_type_object( $item )->cap->delete_posts ) ) {
-							$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=trash" class="gt-trash">' . $num_posts->trash . '</a></div>';
-						}
-						$statuses .= '</div>'; ?>
-
-						$('.<?php echo $item; ?>-count').append('<?php echo $statuses; ?>');
-				
-					<?php }
-
-					if ( current_user_can( 'moderate_comments' ) ) {
-
-						$num_comments = wp_count_comments();
-
-						$moderation = intval( $num_comments->moderated ) > 0 ? 'gt-moderate' : '';
-
-						$statuses = '<div id="gt-statuses-comments" class="gt-statuses">';
-						$statuses .= '<div class="gt-status ' . $moderation . '"><a href="edit-comments.php?comment_status=moderated" class="gt-pending">' . $num_comments->moderated . '</a></div>';
-						$statuses .= '<div class="gt-status"><a href="edit-comments.php?comment_status=spam" class="gt-spam">' . $num_comments->spam . '</a></div>';
-						$statuses .= '<div class="gt-status"><a href="edit-comments.php?comment_status=trash" class="gt-trash">' . $num_comments->trash . '</a></div>';
-						$statuses .= '</div>'; ?>
-
-						$('.comment-count').append('<?php echo $statuses; ?>');
-
-					<?php } ?> 
-
+				var gtitems = $('#dashboard_right_now li:not(\'.post-count,.page-count,.comment-count\')').each(function(index){
+					if ( $(this).find('.gt-item').hasClass('unordered') ) {
+						var order = $(this).find('.gt-item').attr('data-order');
+						$(this).attr('id',order);
+						$(this).find('.gt-item').removeClass('unordered');
+					}
 				});
-			</script>
-		<?php }
+
+			});
+		</script>
+		<?php
 
 	} // end add_statuses
 
@@ -228,133 +208,175 @@ class Glance_That {
 	 */
 	public function customize_items( $elements ) {
 
-		// Get the current users activated glances
-		$glances = $this->users_glance_that();
+		$this->get_users_glances();
 
 		// If not empty, add items
-		if ( '' != $glances ) {
-			
-			foreach ( $glances as $item => $options ) {
+		if ( '' != $this->glances_indexed ) {
 
-				switch ( $item ) {
-					case 'revision':
-						$num_posts = wp_count_posts( $item );
-						if ( $num_posts && $num_posts->inherit && current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
-							$text = _n( '%s ' . get_post_type_object( $item )->labels->singular_name, '%s ' . get_post_type_object( $item )->labels->name, $num_posts->inherit );
-						
-							$text = sprintf( $text, number_format_i18n( $num_posts->inherit ) );
+			// Sort array of glanced items for display
+			$order = array();
+			foreach ( $this->glances as $item => $data )
+			{
+			    $order[ $item ] = isset ( $data['sorted'] ) ? $data['sorted'] : NULL;
+			}
+			array_multisort( $order, SORT_DESC, $this->glances );
 
-							ob_start();
-								printf( '<style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><a data-gt="%1$s" href="#" class="glance-that" style="pointer-events:none;color:#444;">%2$s</a>', $item, $text );
-							$elements[] = ob_get_clean();
-						}
-						break;
+			// Reverse the order
+			$this->glances = array_reverse( $this->glances );
 
-					case 'attachment':
-						$num_posts = wp_count_posts( $item );
-						$unattached = get_posts( array( 'post_type' => 'attachment', 'numberposts' => -1, 'post_status' => NULL, 'post_parent' => 0 ) );
-						$unattached = count( $unattached );
+			foreach ( $this->glances as $glance => $options ) {
+				
+				foreach ( $this->glances_indexed as $key => $data ) {
 
-						if ( $num_posts && $num_posts->inherit && current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
-							$text = _n( '%s ' . get_post_type_object( $item )->labels->singular_name, '%s ' . get_post_type_object( $item )->labels->name, $num_posts->inherit );
-						
-							$text = sprintf( $text, number_format_i18n( $num_posts->inherit ) );
+					if ( $glance == $data['glance'] ) {
 
-							if ( GT_SHOW_ALL ) {
-								$statuses = '<div class="gt-statuses">';
-								$statuses .= '<div class="gt-status"><a href="upload.php?detached=1" class="gt-unattached">' . $unattached . '</a></div>';
-								$statuses .= '</div>';
-							}
+						$item = $data['glance'];
+						$options = $data['data'];
 
-							ob_start();
-								printf( '<style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><a data-gt="%1$s" href="upload.php" class="glance-that">%2$s</a>%3$s', $item, $text, $statuses );
-							$elements[] = ob_get_clean();
-						}
-						break;
+						switch ( $item ) {
+							case 'revision':
+								$num_posts = wp_count_posts( $item );
+								if ( $num_posts && $num_posts->inherit && current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
+									$text = _n( '%s ' . get_post_type_object( $item )->labels->singular_name, '%s ' . get_post_type_object( $item )->labels->name, $num_posts->inherit );
+								
+									$text = sprintf( $text, number_format_i18n( $num_posts->inherit ) );
 
-					case 'plugin':
-						$plugins = get_plugins();
-						$num_plugins = count( $plugins );
-						$num_plugins_active = 0;
+									ob_start();
+										printf( '<div class="gt-item unordered" data-order="gt_' . ( $key + 1 ) . '"><style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><a data-gt="%1$s" href="#" class="glance-that" style="pointer-events:none;color:#444;">%2$s</a></div>', $item, $text );
+									$elements[] = ob_get_clean();
+								}
+								break;
 
-						$plugin_updates = get_plugin_updates();
-						$num_plugin_updates = count( $plugin_updates );
-						
-						foreach ( $plugins as $plugin => $data ) {
-							is_plugin_active( $plugin ) ? $num_plugins_active++ : FALSE;
-						}
+							case 'attachment':
+								$num_posts = wp_count_posts( $item );
+								$unattached = get_posts( array( 'post_type' => 'attachment', 'numberposts' => -1, 'post_status' => NULL, 'post_parent' => 0 ) );
+								$unattached = count( $unattached );
 
-						if ( $num_plugins && current_user_can( 'activate_plugins' ) ) {
-							$text = _n( '%s Plugin', '%s Plugins', $num_plugins );
-						
-							$text = sprintf( $text, number_format_i18n( $num_plugins ) );
+								if ( $num_posts && ( $num_posts->inherit || GT_SHOW_ZERO_COUNT ) && current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
+									$text = _n( '%s ' . get_post_type_object( $item )->labels->singular_name, '%s ' . get_post_type_object( $item )->labels->name, $num_posts->inherit );
+								
+									$text = sprintf( $text, number_format_i18n( $num_posts->inherit ) );
 
-							if ( GT_SHOW_ALL ) {
-								$statuses = '<div class="gt-statuses">';
-									$statuses .= '<div class="gt-status"><a href="plugins.php?plugin_status=active" class="gt-active">' . $num_plugins_active . '</a></div>';
-									$moderation = intval( $num_plugin_updates ) > 0 ? 'gt-moderate' : '';
-									$statuses .= '<div class="gt-status ' . $moderation . '"><a href="plugins.php?plugin_status=upgrade" class="gt-update">' . $num_plugin_updates . '</a></div>';
-									$statuses .= '<div class="gt-status"><a href="plugins.php?plugin_status=inactive" class="gt-inactive">' . ( $num_plugins - $num_plugins_active ) . '</a></div>';
-								$statuses .= '</div>';
-							}
-
-							ob_start();
-								printf( '<style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><div class="gt-published"><a data-gt="%1$s" href="plugins.php" class="glance-that">%2$s</a></div>%3$s', $item, $text, $statuses );
-							$elements[] = ob_get_clean();
-						}
-
-						break;
-
-					case 'user':
-						$num_users = count_users();
-						if ( current_user_can( 'list_users' ) ) {
-							$text = _n( '%s User', '%s Users', $num_users['total_users'] );
-						
-							$text = sprintf( $text, number_format_i18n( $num_users['total_users'] ) );
-
-							ob_start();
-								printf( '<style type="text/css">#dashboard_right_now li a[data-gt="user"]:before{content:\'\\' . $options['icon'] . '\';}</style><a data-gt="user" href="users.php" class="glance-that">%1$s</a>', $text );
-							$elements[] = ob_get_clean();
-						}
-						break;
-
-					default:
-						if ( post_type_exists( $item ) ) {
-							$num_posts = wp_count_posts( $item );
-							if ( $num_posts && $num_posts->publish && current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
-								$text = _n( '%s ' . get_post_type_object( $item )->labels->singular_name, '%s ' . get_post_type_object( $item )->labels->name, $num_posts->publish );
-							
-								$text = sprintf( $text, number_format_i18n( $num_posts->publish ) );
-
-								if ( GT_SHOW_ALL ) {
-									$statuses = '<div class="gt-statuses">';
-									if ( current_user_can( get_post_type_object( $item )->cap->publish_posts ) ) {
-										$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=future" class="gt-future">' . $num_posts->future . '</a></div>';
+									if ( GT_SHOW_ALL ) {
+										$statuses = '<div class="gt-statuses">';
+										$statuses .= '<div class="gt-status"><a href="upload.php?detached=1" class="gt-unattached">' . $unattached . '</a></div>';
+										$statuses .= '</div>';
 									}
-									if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
-										$moderation = intval( $num_posts->pending ) > 0 ? 'gt-moderate' : '';
-										$statuses .= '<div class="gt-status ' . $moderation . '"><a href="edit.php?post_type=' . $item . '&post_status=pending" class="gt-pending">' . $num_posts->pending . '</a></div>';
+
+									ob_start();
+										printf( '<div class="gt-item unordered" data-order="gt_' . ( $key + 1 ) . '"><style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><a data-gt="%1$s" href="upload.php" class="glance-that">%2$s</a>%3$s</div>', $item, $text, $statuses );
+									$elements[] = ob_get_clean();
+								}
+								break;
+
+							case 'comment':
+								$num_comments = wp_count_comments();
+
+								if ( ( $num_comments->approved || GT_SHOW_ZERO_COUNT ) && current_user_can( 'moderate_comments' ) ) {
+									$text = _n( '%s Comment', '%s Comments', $num_comments->approved );
+								
+									$text = sprintf( $text, number_format_i18n( $num_comments->approved ) );
+
+									if ( GT_SHOW_ALL ) {
+										$moderation = intval( $num_comments->moderated ) > 0 ? 'gt-moderate' : '';
+										$statuses = '<div id="gt-statuses-comments" class="gt-statuses">';
+										$statuses .= '<div class="gt-status ' . $moderation . '"><a href="edit-comments.php?comment_status=moderated" class="gt-pending">' . $num_comments->moderated . '</a></div>';
+										$statuses .= '<div class="gt-status"><a href="edit-comments.php?comment_status=spam" class="gt-spam">' . $num_comments->spam . '</a></div>';
+										$statuses .= '<div class="gt-status"><a href="edit-comments.php?comment_status=trash" class="gt-trash">' . $num_comments->trash . '</a></div>';
+										$statuses .= '</div>'; 
 									}
-									if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
-										$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=draft" class="gt-draft">' . $num_posts->draft . '</a></div>';
-									}
-									if ( ( ! isset( get_post_type_object( $item )->cap->edit_private_posts ) && current_user_can( 'edit_private_posts' ) ) || current_user_can( get_post_type_object( $item )->cap->edit_private_posts ) ) {
-										$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=private" class="gt-private">' . $num_posts->private . '</a></div>';
-									}
-									if ( ( ! isset( get_post_type_object( $item )->cap->delete_posts ) && current_user_can( 'delete_posts' ) && current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) || ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) && current_user_can( get_post_type_object( $item )->cap->delete_posts ) ) ) {
-										$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=trash" class="gt-trash">' . $num_posts->trash . '</a></div>';
-									}
-									$statuses .= '</div>';
+
+									ob_start();
+										printf( '<div class="gt-item unordered" data-order="gt_' . ( $key + 1 ) . '"><style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><div class="gt-published"><a data-gt="%1$s" href="edit-comments.php" class="glance-that unordered">%2$s</a></div>%3$s</div>', $item, $text, $statuses );
+									$elements[] = ob_get_clean();
+								}
+								break;
+
+							case 'plugin':
+								$plugins = get_plugins();
+								$num_plugins = count( $plugins );
+								$num_plugins_active = 0;
+
+								$plugin_updates = get_plugin_updates();
+								$num_plugin_updates = count( $plugin_updates );
+								
+								foreach ( $plugins as $plugin => $data ) {
+									is_plugin_active( $plugin ) ? $num_plugins_active++ : FALSE;
 								}
 
-								ob_start();
-									printf( '<style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><div class="gt-published"><a data-gt="%1$s" href="edit.php?post_type=%1$s" class="glance-that">%2$s</a></div>%3$s', $item, $text, $statuses );
-								$elements[] = ob_get_clean();
-							}
-						}
-						break;
-				}
-			}
+								if ( ( $num_plugins || GT_SHOW_ZERO_COUNT ) && current_user_can( 'activate_plugins' ) ) {
+									$text = _n( '%s Plugin', '%s Plugins', $num_plugins );
+								
+									$text = sprintf( $text, number_format_i18n( $num_plugins ) );
+
+									if ( GT_SHOW_ALL ) {
+										$statuses = '<div class="gt-statuses">';
+											$statuses .= '<div class="gt-status"><a href="plugins.php?plugin_status=active" class="gt-active">' . $num_plugins_active . '</a></div>';
+											$moderation = intval( $num_plugin_updates ) > 0 ? 'gt-moderate' : '';
+											$statuses .= '<div class="gt-status ' . $moderation . '"><a href="plugins.php?plugin_status=upgrade" class="gt-update">' . $num_plugin_updates . '</a></div>';
+											$statuses .= '<div class="gt-status"><a href="plugins.php?plugin_status=inactive" class="gt-inactive">' . ( $num_plugins - $num_plugins_active ) . '</a></div>';
+										$statuses .= '</div>';
+									}
+
+									ob_start();
+										printf( '<div class="gt-item unordered" data-order="gt_' . ( $key + 1 ) . '"><style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><div class="gt-published"><a data-gt="%1$s" href="plugins.php" class="glance-that">%2$s</a></div>%3$s</div>', $item, $text, $statuses );
+									$elements[] = ob_get_clean();
+								}
+
+								break;
+
+							case 'user':
+								$num_users = count_users();
+								if ( current_user_can( 'list_users' ) ) {
+									$text = _n( '%s User', '%s Users', $num_users['total_users'] );
+								
+									$text = sprintf( $text, number_format_i18n( $num_users['total_users'] ) );
+
+									ob_start();
+										printf( '<div class="gt-item unordered" data-order="gt_' . ( $key + 1 ) . '"><style type="text/css">#dashboard_right_now li a[data-gt="user"]:before{content:\'\\' . $options['icon'] . '\';}</style><a data-gt="user" href="users.php" class="glance-that">%1$s</a></div>', $text );
+									$elements[] = ob_get_clean();
+								}
+								break;
+
+							default:
+								if ( post_type_exists( $item ) ) {
+									$num_posts = wp_count_posts( $item );
+									if ( $num_posts && ( $num_posts->publish || GT_SHOW_ZERO_COUNT ) && current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
+										$text = _n( '%s ' . get_post_type_object( $item )->labels->singular_name, '%s ' . get_post_type_object( $item )->labels->name, $num_posts->publish );
+									
+										$text = sprintf( $text, number_format_i18n( $num_posts->publish ) );
+
+										if ( GT_SHOW_ALL ) {
+											$statuses = '<div class="gt-statuses">';
+											if ( current_user_can( get_post_type_object( $item )->cap->publish_posts ) ) {
+												$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=future" class="gt-future">' . $num_posts->future . '</a></div>';
+											}
+											if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
+												$moderation = intval( $num_posts->pending ) > 0 ? 'gt-moderate' : '';
+												$statuses .= '<div class="gt-status ' . $moderation . '"><a href="edit.php?post_type=' . $item . '&post_status=pending" class="gt-pending">' . $num_posts->pending . '</a></div>';
+											}
+											if ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) {
+												$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=draft" class="gt-draft">' . $num_posts->draft . '</a></div>';
+											}
+											if ( ( ! isset( get_post_type_object( $item )->cap->edit_private_posts ) && current_user_can( 'edit_private_posts' ) ) || current_user_can( get_post_type_object( $item )->cap->edit_private_posts ) ) {
+												$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=private" class="gt-private">' . $num_posts->private . '</a></div>';
+											}
+											if ( ( ! isset( get_post_type_object( $item )->cap->delete_posts ) && current_user_can( 'delete_posts' ) && current_user_can( get_post_type_object( $item )->cap->edit_posts ) ) || ( current_user_can( get_post_type_object( $item )->cap->edit_posts ) && current_user_can( get_post_type_object( $item )->cap->delete_posts ) ) ) {
+												$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=trash" class="gt-trash">' . $num_posts->trash . '</a></div>';
+											}
+											$statuses .= '</div>';
+										}
+
+										ob_start();
+											printf( '<div class="gt-item unordered" data-order="gt_' . ( $key + 1 ) . '"><style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><div class="gt-published"><a data-gt="%1$s" href="edit.php?post_type=%1$s" class="glance-that">%2$s</a></div>%3$s</div>', $item, $text, $statuses );
+										$elements[] = ob_get_clean();
+									}
+								}
+								break;
+						} // end switch
+					} // end if
+				} // end foreach
+			} // end foreach
 		}
 
 		return $elements;
@@ -384,6 +406,9 @@ class Glance_That {
 	 * @since    1.2
 	 */
 	public function add_form() {
+
+		global $current_user;
+		wp_get_current_user();
 
 		// Define dashicon fields allowable icons
 		$iconset = array(
@@ -485,11 +510,8 @@ class Glance_That {
 			'microphone',
 		);
 
-		// Get the current users activated glances
-		$glances = $this->users_glance_that();
-
 		// Assemble a form for adding/removing post types
-		$html = '<form id="gt-form" method="post" action="index.php?action=add-gt-item"';
+		$html = '<form id="gt-form" method="post" action="index.php?action=add-gt-item" data-userid="' . $current_user->ID . '"';
 
 			// Keep form visible if submission has just been made
 			$html .= ( isset( $_GET['action'] ) && ( 'add-gt-item' == $_GET['action'] || 'remove-gt-item' == $_GET['action'] ) ) ? '>' : ' style="display:none;">';
@@ -508,7 +530,7 @@ class Glance_That {
 				foreach( $post_types as $index => $post_type ) {
 
 					// Set data-glancing attribute
-					$glancing = isset( $glances[ $post_type->name ] ) ? 'data-glancing="shown"' : 'data-glancing="hidden"';
+					$glancing = isset( $this->glances[ $post_type->name ] ) ? 'data-glancing="shown"' : 'data-glancing="hidden"';
 
 					// Only show revisions to admininstrators
 					if ( 'revision' == $post_type->name && current_user_can( 'edit_dashboard' ) ) {
@@ -516,10 +538,14 @@ class Glance_That {
 					}
 
 					// Only show post types on which user has edit permissions
-					elseif ( current_user_can( $post_type->cap->edit_posts ) && 'post' != $post_type->name && 'page' != $post_type->name && 'nav_menu_item' != $post_type->name ) {
+					elseif ( current_user_can( $post_type->cap->edit_posts ) && 'nav_menu_item' != $post_type->name ) {
 						$html .= '<option value="' . esc_attr( $post_type->name ) . '" data-dashicon="';
 						// add default dashicons for post types
-						if ( 'attachment' == $post_type->name ) {
+						if ( 'post' == $post_type->name ) {
+							$html .= 'admin-post';
+						} elseif ( 'page' == $post_type->name ) {
+							$html .= 'admin-page';
+						} elseif ( 'attachment' == $post_type->name ) {
 							$html .= 'admin-media';
 						} elseif ( ! empty( $post_type->menu_icon  ) ) {
 							$html .= esc_attr( str_replace( 'dashicons-', '', $post_type->menu_icon ) );
@@ -532,13 +558,19 @@ class Glance_That {
 				}
 
 				// Set data-glancing attribute
-				$glancing = isset( $glances['user'] ) ? 'data-glancing="shown"' : 'data-glancing="hidden"';
+				$glancing = isset( $this->glances['comment'] ) ? 'data-glancing="shown"' : 'data-glancing="hidden"';
+
+				// Only show users option if user can list users
+				current_user_can( 'moderate_comments' ) ? $html .= '<option value="comment" data-dashicon="admin-comments" ' . $glancing . '>Comments</options>' : FALSE;
+
+				// Set data-glancing attribute
+				$glancing = isset( $this->glances['user'] ) ? 'data-glancing="shown"' : 'data-glancing="hidden"';
 
 				// Only show users option if user can list users
 				current_user_can( 'list_users' ) ? $html .= '<option value="user" data-dashicon="admin-users" ' . $glancing . '>Users</options>' : FALSE;
 
 				// Set data-glancing attribute
-				$glancing = isset( $glances['plugin'] ) ? 'data-glancing="shown"' : 'data-glancing="hidden"';
+				$glancing = isset( $this->glances['plugin'] ) ? 'data-glancing="shown"' : 'data-glancing="hidden"';
 
 				// Only show plugins optino if user can activate plugins
 				current_user_can( 'activate_plugins' ) ? $html .= '<option value="plugin" data-dashicon="admin-plugins" ' . $glancing . '>Plugins</options>' : FALSE;
@@ -570,9 +602,6 @@ class Glance_That {
 			// Get current user
 			$current_user = wp_get_current_user();
 
-			// Get the current users activated glances
-			$glances = $this->users_glance_that();
-
 			// Get the submitted post type glance
 			$glance = isset( $_POST['gt-item'] ) ? $_POST['gt-item'] : '';
 
@@ -590,13 +619,13 @@ class Glance_That {
 				else {
 
 					// Add item to glance_that user meta
-					$glances[ $glance ] = array( 'icon' => $_POST['gt-item-icon'] );
+					$this->glances[ $glance ] = array( 'icon' => $_POST['gt-item-icon'] );
 
 					// Alphabetize the items
-					ksort( $glances );
+					ksort( $this->glances );
 
 					// Update the meta
-					update_user_meta( $current_user->ID, 'glance_that', $glances );
+					update_user_meta( $current_user->ID, 'glance_that', $this->glances );
 
 					// Display notices
 					if ( in_array( $glance, $post_types ) ) {
@@ -619,10 +648,10 @@ class Glance_That {
 				else {
 
 					// Remove item from glance_that user meta
-					unset( $glances[ $glance ] );
+					unset( $this->glances[ $glance ] );
 
 					// Update the option
-					update_user_meta( $current_user->ID, 'glance_that', $glances );
+					update_user_meta( $current_user->ID, 'glance_that', $this->glances );
 					
 					// Display notices
 					if ( in_array( $glance, $post_types ) ) {
@@ -990,11 +1019,61 @@ class Glance_That {
 	 *
 	 * @since    1.0
 	 */
-	public function users_glance_that() {
+	public function get_users_glances() {
 
-		// Get the current users activated glances
-		$current_user = wp_get_current_user();
-		return get_user_meta( $current_user->ID, 'glance_that', TRUE );
+		global $current_user;
+		wp_get_current_user();
+
+		$this->glances = get_user_meta( $current_user->ID, 'glance_that', TRUE );
+
+		// Set an indexed array of glances to reference when sorting
+		$this->glances_indexed = array();
+		foreach ( $this->glances as $glance => $data ) {
+			$this->glances_indexed[] = array(
+				'glance' => $glance,
+				'data' => $data,
+				);
+		}
+
+	}
+
+	/**
+	 * Action target that sorts glances
+	 *
+	 * @since    1.8
+	 */
+	public function sort_glances() {
+
+		// Get newly sorted glances array
+		$order = $_POST['gt_sort'];
+
+		// Remove any items not belonging to Glance That
+		foreach ( $order as $key => $value) {
+			if ( '' == $value ) {
+				unset( $order[ $key ] );
+			}
+		}
+
+		// Rekey the array
+		$order = array_values( $order );
+
+		// 
+		foreach ( $order as $key => $gt_index ) {
+			foreach ( $this->glances_indexed as $index => $data ) {
+				$gt_index = str_replace( 'gt_', '', $gt_index );
+				if ( ( $index + 1 ) == intval( $gt_index ) ) {
+					$this->glances[ $data['glance'] ]['sorted'] = intval( $key );
+				}
+			}
+		}
+
+		// Update the option
+		update_user_meta( intval( $_POST['userID'] ), 'glance_that', $this->glances );
+
+		// generate the response
+		$response = array( 'success' => true, 'order' => $order );
+
+		wp_send_json( $response );
 
 	}
 

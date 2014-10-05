@@ -3,6 +3,37 @@
  */
 jQuery(document).ready(function( $ ) {
 
+	$('.post-count,.page-count,.comment-count').hide();
+
+	$(function() {
+
+	    $( "#dashboard_right_now .inside .main ul" ).sortable({
+	      placeholder: "element-holder",
+	      forcePlaceholderSize: true,
+	      cancel: '#dashboard_right_now .inside .main ul li:last-child',
+	      containment: 'parent',
+	      cursor: 'move',
+	      cursorAt: { top: 15, left: 15 },
+	    });
+	   
+	    $( "#dashboard_right_now .inside .main ul" ).disableSelection();
+	    
+	    /* Send ajax after sort change */
+	    $('#dashboard_right_now .inside .main ul').sortable({
+		  update: function(evt, ui) {  
+		    $.post(Glance.ajaxurl, {
+		      action: 'sort_glances',
+		      gt_sort: $('#dashboard_right_now .inside .main ul').sortable('toArray'),
+		      userID: $('#gt-form').data('userid'),
+			}, function (response) {
+				
+			});
+		  }
+		});
+
+	});
+
+
 	$('#visible-icon').click(
 		function() {
 			if( $('#iconlist').is(':visible') ) {
