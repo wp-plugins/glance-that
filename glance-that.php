@@ -3,7 +3,7 @@
  * Plugin Name: Glance That
  * Plugin URI: http://vandercar.net/wp/glance-that
  * Description: Adds content control to At a Glance on the Dashboard
- * Version: 1.8
+ * Version: 1.9
  * Author: UaMV
  * Author URI: http://vandercar.net
  *
@@ -17,7 +17,7 @@
  * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
  * @package Glance That
- * @version 1.8
+ * @version 1.9
  * @author UaMV
  * @copyright Copyright (c) 2013, UaMV
  * @link http://vandercar.net/wp/glance-that
@@ -28,7 +28,7 @@
  * Define plugins globals.
  */
 
-define( 'GT_VERSION', '1.8' );
+define( 'GT_VERSION', '1.9' );
 define( 'GT_DIR_PATH', plugin_dir_path( __FILE__ ) );
 define( 'GT_DIR_URL', plugin_dir_url( __FILE__ ) );
 ! defined( 'GT_SHOW_ALL' ) ? define( 'GT_SHOW_ALL', TRUE ) : FALSE;
@@ -312,9 +312,9 @@ class Glance_That {
 									if ( GT_SHOW_ALL ) {
 										$statuses = '<div class="gt-statuses">';
 											$statuses .= '<div class="gt-status"><a href="plugins.php?plugin_status=active" class="gt-active">' . $num_plugins_active . '</a></div>';
+											$statuses .= '<div class="gt-status"><a href="plugins.php?plugin_status=inactive" class="gt-inactive">' . ( $num_plugins - $num_plugins_active ) . '</a></div>';
 											$moderation = intval( $num_plugin_updates ) > 0 ? 'gt-moderate' : '';
 											$statuses .= '<div class="gt-status ' . $moderation . '"><a href="plugins.php?plugin_status=upgrade" class="gt-update">' . $num_plugin_updates . '</a></div>';
-											$statuses .= '<div class="gt-status"><a href="plugins.php?plugin_status=inactive" class="gt-inactive">' . ( $num_plugins - $num_plugins_active ) . '</a></div>';
 										$statuses .= '</div>';
 									}
 
@@ -335,6 +335,30 @@ class Glance_That {
 									ob_start();
 										printf( '<div class="gt-item unordered" data-order="gt_' . ( $key + 1 ) . '"><style type="text/css">#dashboard_right_now li a[data-gt="user"]:before{content:\'\\' . $options['icon'] . '\';}</style><a data-gt="user" href="users.php" class="glance-that">%1$s</a></div>', $text );
 									$elements[] = ob_get_clean();
+								}
+								break;
+
+							case 'gravityform':
+								if ( class_exists( 'RGFormsModel' ) ) {
+									$num_forms = RGFormsModel::get_form_count();
+
+									if ( ( $num_forms['total'] || GT_SHOW_ZERO_COUNT ) && ( current_user_can( 'gform_full_access' ) || current_user_can( 'gravityforms_edit_forms' ) ) ) {
+										$text = _n( '%s Form', '%s Forms', $num_forms['total'] );
+									
+										$text = sprintf( $text, number_format_i18n( $num_forms['total'] ) );
+
+										if ( GT_SHOW_ALL ) {
+											$statuses = '<div class="gt-statuses">';
+												$statuses .= '<div class="gt-status"><a href="admin.php?page=gf_edit_forms&active=1" class="gt-active">' . $num_forms['active'] . '</a></div>';
+												$statuses .= '<div class="gt-status"><a href="admin.php?page=gf_edit_forms&active=0" class="gt-inactive">' . $num_forms['inactive'] . '</a></div>';
+												$statuses .= '<div class="gt-status"><a href="admin.php?page=gf_edit_forms&trash=1" class="gt-trash">' . $num_forms['trash'] . '</a></div>';
+											$statuses .= '</div>';
+										}
+
+										ob_start();
+											printf( '<div class="gt-item unordered" data-order="gt_' . ( $key + 1 ) . '"><style type="text/css">#dashboard_right_now li a[data-gt="%1$s"]:before{content:\'\\' . $options['icon'] . '\';}</style><div class="gt-published"><a data-gt="%1$s" href="admin.php?page=gf_edit_forms" class="glance-that unordered">%2$s</a></div>%3$s</div>', $item, $text, $statuses );
+										$elements[] = ob_get_clean();
+									}
 								}
 								break;
 
@@ -557,6 +581,14 @@ class Glance_That {
 
 				}
 
+				if ( class_exists( 'RGFormsModel' ) ) {					
+					// Set data-glancing attribute
+					$glancing = isset( $this->glances['gravityform'] ) ? 'data-glancing="shown"' : 'data-glancing="hidden"';
+
+					// Only show users option if user can edit forms
+					( current_user_can( 'gform_full_access' ) || current_user_can( 'gravityforms_edit_forms' ) ) ? $html .= '<option value="gravityform" data-dashicon="feedback" ' . $glancing . '>Gravity Forms</options>' : FALSE;
+				}
+
 				// Set data-glancing attribute
 				$glancing = isset( $this->glances['comment'] ) ? 'data-glancing="shown"' : 'data-glancing="hidden"';
 
@@ -634,6 +666,10 @@ class Glance_That {
 						$this->notices[] = array( 'message' => '<strong>Users</strong> were successfully added to your glances.', 'class' => 'updated' );
 					} elseif ( 'plugin' == $glance ) {
 						$this->notices[] = array( 'message' => '<strong>Plugins</strong> were successfully added to your glances.', 'class' => 'updated' );
+					} elseif ( 'comment' == $glance ) {
+						$this->notices[] = array( 'message' => '<strong>Comments</strong> were successfully added to your glances.', 'class' => 'updated' );
+					} elseif ( 'gravityform' == $glance ) {
+						$this->notices[] = array( 'message' => '<strong>Gravity Forms</strong> were successfully added to your glances.', 'class' => 'updated' );
 					}
 				}
 
@@ -660,6 +696,10 @@ class Glance_That {
 						$this->notices[] = array( 'message' => '<strong>Users</strong> were successfully removed from your glances.', 'class' => 'updated' );
 					} elseif ( 'plugin' == $glance ) {
 						$this->notices[] = array( 'message' => '<strong>Plugins</strong> were successfully removed from your glances.', 'class' => 'updated' );
+					} elseif ( 'comment' == $glance ) {
+						$this->notices[] = array( 'message' => '<strong>Plugins</strong> were successfully removed from your glances.', 'class' => 'updated' );
+					} elseif ( 'gravityform' == $glance ) {
+						$this->notices[] = array( 'message' => '<strong>Gravity Forms</strong> were successfully removed from your glances.', 'class' => 'updated' );
 					}
 				}
 
@@ -870,9 +910,9 @@ class Glance_That {
 			'f318' => 'category',
 
 			// widgets
-			'f478' => 'archive',
+			'f480' => 'archive',
 			'f479' => 'tagcloud',
-			'f480' => 'text',
+			'f478' => 'text',
 			
 			// alerts/notifications/flags
 			'f147' => 'yes',

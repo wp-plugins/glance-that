@@ -5,7 +5,7 @@ Donate link: http://vandercar.net/wp
 Tags: cpt, custom, post type, glance, dashboard, admin, dashicons
 Requires at least: 3.1
 Tested up to: 4.0
-Stable tag: 1.8
+Stable tag: 1.9
 License: GPLv2 or later
 
 Adds content control to At a Glance on the Dashboard
@@ -19,6 +19,7 @@ Glance That allows users to customize the content viewable in At a Glance on the
 * Media
 * Plugins
 * Users
+* Gravity Forms
 
 Additionally, Glance That allows you to view the number of items matching the following statuses:
 
@@ -29,7 +30,8 @@ Additionally, Glance That allows you to view the number of items matching the fo
 * Trash
 * Unattached (Media)
 * Spam (Comments)
-* Active, Inactive, Updates (Plugins)
+* Active, Inactive (Plugins & Gravity Forms)
+* Updates (Plugins)
 
 Statuses can be hid by adding the following to wp-config.php
 `define( GT_SHOW_ALL, FALSE );`
@@ -52,6 +54,11 @@ Silence is golden.
 2. Glance That Form
 
 == Changelog ==
+
+= 1.9 =
+* Adds support for glancing Gravity Forms
+* Adds move cursor for drag & drop
+* Fix for mismatched icons
 
 = 1.8 =
 * Adds sorting via drag & drop!

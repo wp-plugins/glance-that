@@ -72,3 +72,6 @@
 	border-left: 4px dotted #ececec;
 	margin-right: -4px;
 }
+.gt-item:hover {
+	cursor: move;
+}
