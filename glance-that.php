@@ -3,7 +3,7 @@
  * Plugin Name: Glance That
  * Plugin URI: http://vandercar.net/wp/glance-that
  * Description: Adds content control to At a Glance on the Dashboard
- * Version: 2.0
+ * Version: 2.1
  * Author: UaMV
  * Author URI: http://vandercar.net
  *
@@ -17,7 +17,7 @@
  * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
  * @package Glance That
- * @version 2.0
+ * @version 2.1
  * @author UaMV
  * @copyright Copyright (c) 2013, UaMV
  * @link http://vandercar.net/wp/glance-that
@@ -28,10 +28,14 @@
  * Define plugins globals.
  */
 
-define( 'GT_VERSION', '2.0' );
+define( 'GT_VERSION', '2.1' );
 define( 'GT_DIR_PATH', plugin_dir_path( __FILE__ ) );
 define( 'GT_DIR_URL', plugin_dir_url( __FILE__ ) );
-! defined( 'GT_SHOW_ALL' ) ? define( 'GT_SHOW_ALL', TRUE ) : FALSE;
+
+// Determine whether statuses are to be shown (keep GT_SHOW_ALL for backwards compatibility - pre v2.1)
+( ! defined( 'GT_SHOW_ALL_STATUS' ) || ( defined( 'GT_SHOW_ALL' ) && GT_SHOW_ALL ) ) ? define( 'GT_SHOW_ALL_STATUS', TRUE ) : FALSE;
+
+// Determine whether items with zero published items are shown
 ! defined( 'GT_SHOW_ZERO_COUNT' ) ? define( 'GT_SHOW_ZERO_COUNT', TRUE ) : FALSE;
 
 /**
@@ -115,7 +119,7 @@ class Glance_That {
 	private function __construct() {
 
 		// Process the form
-		add_action( 'plugins_loaded', array( $this, 'get_users_glances' ) );
+		add_action( 'init', array( $this, 'get_users_glances' ) );
 
 		// Load the administrative Stylesheets and JavaScript
 		add_action( 'admin_enqueue_scripts', array( $this, 'add_stylesheets_and_javascript' ) );
@@ -257,7 +261,7 @@ class Glance_That {
 								
 									$text = sprintf( $text, number_format_i18n( $num_posts->inherit ) );
 
-									if ( GT_SHOW_ALL ) {
+									if ( GT_SHOW_ALL_STATUS ) {
 										$statuses = '<div class="gt-statuses">';
 										$statuses .= '<div class="gt-status"><a href="upload.php?detached=1" class="gt-unattached">' . $unattached . '</a></div>';
 										$statuses .= '</div>';
@@ -277,7 +281,7 @@ class Glance_That {
 								
 									$text = sprintf( $text, number_format_i18n( $num_comments->approved ) );
 
-									if ( GT_SHOW_ALL ) {
+									if ( GT_SHOW_ALL_STATUS ) {
 										$moderation = intval( $num_comments->moderated ) > 0 ? 'gt-moderate' : '';
 										$statuses = '<div id="gt-statuses-comments" class="gt-statuses">';
 										$statuses .= '<div class="gt-status ' . $moderation . '"><a href="edit-comments.php?comment_status=moderated" class="gt-pending">' . $num_comments->moderated . '</a></div>';
@@ -309,7 +313,7 @@ class Glance_That {
 								
 									$text = sprintf( $text, number_format_i18n( $num_plugins ) );
 
-									if ( GT_SHOW_ALL ) {
+									if ( GT_SHOW_ALL_STATUS ) {
 										$statuses = '<div class="gt-statuses">';
 											$statuses .= '<div class="gt-status"><a href="plugins.php?plugin_status=active" class="gt-active">' . $num_plugins_active . '</a></div>';
 											$statuses .= '<div class="gt-status"><a href="plugins.php?plugin_status=inactive" class="gt-inactive">' . ( $num_plugins - $num_plugins_active ) . '</a></div>';
@@ -347,7 +351,7 @@ class Glance_That {
 									
 										$text = sprintf( $text, number_format_i18n( $num_forms['total'] ) );
 
-										if ( GT_SHOW_ALL ) {
+										if ( GT_SHOW_ALL_STATUS ) {
 											$statuses = '<div class="gt-statuses">';
 												$statuses .= '<div class="gt-status"><a href="admin.php?page=gf_edit_forms&active=1" class="gt-active">' . $num_forms['active'] . '</a></div>';
 												$statuses .= '<div class="gt-status"><a href="admin.php?page=gf_edit_forms&active=0" class="gt-inactive">' . $num_forms['inactive'] . '</a></div>';
@@ -370,7 +374,7 @@ class Glance_That {
 									
 										$text = sprintf( $text, number_format_i18n( $num_posts->publish ) );
 
-										if ( GT_SHOW_ALL ) {
+										if ( GT_SHOW_ALL_STATUS ) {
 											$statuses = '<div class="gt-statuses">';
 											if ( current_user_can( get_post_type_object( $item )->cap->publish_posts ) ) {
 												$statuses .= '<div class="gt-status"><a href="edit.php?post_type=' . $item . '&post_status=future" class="gt-future">' . $num_posts->future . '</a></div>';
@@ -1066,7 +1070,23 @@ class Glance_That {
 
 		$this->glances = get_user_meta( $current_user->ID, 'glance_that', TRUE );
 
-		$this->glances = empty( $this->glances ) ? array() : $this->glances;
+		// If user has no glances set
+		if ( empty( $this->glances ) ) {
+
+			// Define standard defaults
+			$gt_default_glances = array(
+				'post' => array( 'icon' => 'f109', 'sort' => 1 ),
+				'page' => array( 'icon' => 'f105', 'sort' => 2 ),
+				'comment' => array( 'icon' => 'f101', 'sort' => 3 ),
+				);
+
+			// Set default glances
+			$this->glances = apply_filters( 'gt_default_glances', $gt_default_glances, $current_user->ID );
+
+			// Update the option
+			update_user_meta( $current_user->ID, 'glance_that', $this->glances );
+
+		}
 
 		// Set an indexed array of glances to reference when sorting
 		$this->glances_indexed = array();

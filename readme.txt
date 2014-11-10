@@ -5,7 +5,7 @@ Donate link: http://vandercar.net/wp
 Tags: cpt, custom, post type, glance, dashboard, admin, dashicons
 Requires at least: 3.1
 Tested up to: 4.0
-Stable tag: 2.0
+Stable tag: 2.1
 License: GPLv2 or later
 
 Adds content control to At a Glance on the Dashboard
@@ -33,11 +33,27 @@ Additionally, Glance That allows you to view the number of items matching the fo
 * Active, Inactive (Plugins & Gravity Forms)
 * Updates (Plugins)
 
+= Constants =
+
 Statuses can be hid by adding the following to wp-config.php
-`define( GT_SHOW_ALL, FALSE );`
+`define( GT_SHOW_ALL_STATUS, FALSE );`
 
 Items with a zero published count can be hid by adding
 `define( GT_SHOW_ZERO_COUNT, FALSE );`
+
+= Filters =
+
+The `gt_default_glances` filter can be used to define glances that should be visible to a user upon first visiting their dashboard.
+`apply_filters( 'gt_default_glances', array $default_glances, int $user_ID );`
+where the $default_glances parameter is prepopulated as
+`
+// Define standard defaults
+$gt_default_glances = array(
+	'post' => array( 'icon' => 'f109', 'sort' => 1 ),
+	'page' => array( 'icon' => 'f105', 'sort' => 2 ),
+	'comment' => array( 'icon' => 'f101', 'sort' => 3 ),
+	);
+`
 
 == Installation ==
 
@@ -54,6 +70,10 @@ Silence is golden.
 2. Glance That Form
 
 == Changelog ==
+
+= 2.1 =
+* Allows filtering of default glances with gt_default_glances
+* Changes GT_SHOW_ALL to GT_SHOW_ALL_STATUS
 
 = 2.0 =
 * Fix for PHP Warning when users meta had not yet been set
