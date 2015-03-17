@@ -4,8 +4,8 @@ Contributors: UaMV
 Donate link: http://vandercar.net/wp
 Tags: cpt, custom, post type, glance, dashboard, admin, dashicons
 Requires at least: 3.1
-Tested up to: 4.0
-Stable tag: 2.1
+Tested up to: 4.2.1
+Stable tag: 2.3
 License: GPLv2 or later
 
 Adds content control to At a Glance on the Dashboard
@@ -36,10 +36,13 @@ Additionally, Glance That allows you to view the number of items matching the fo
 = Constants =
 
 Statuses can be hid by adding the following to wp-config.php
-`define( GT_SHOW_ALL_STATUS, FALSE );`
+`define( 'GT_SHOW_ALL_STATUS', FALSE );`
 
 Items with a zero published count can be hid by adding
-`define( GT_SHOW_ZERO_COUNT, FALSE );`
+`define( 'GT_SHOW_ZERO_COUNT', FALSE );`
+
+Restrict modification of visible glances by adding
+`define( 'GT_EDIT_GLANCES', 'capability_required_to_edit' );`
 
 = Filters =
 
@@ -70,6 +73,12 @@ Silence is golden.
 2. Glance That Form
 
 == Changelog ==
+
+= 2.3 =
+* Allows restriction of the editability of glances
+
+= 2.2 =
+* Supports new dashicons
 
 = 2.1 =
 * Allows filtering of default glances with gt_default_glances
@@ -115,6 +124,12 @@ Silence is golden.
 * Initial Release
 
 == Upgrade Notice ==
+
+= 2.3 =
+* You can now restrict users without a specific capability from editing their visible glances.
+
+= 2.2 =
+* Supporting new dashicons and tagging WP 4.1 compatibility
 
 = 1.8 =
 * New features include sorting and control of native items. Please, note that native items (posts, pages, comments) will need to be manually added after this update.
